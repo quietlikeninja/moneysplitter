@@ -1,82 +1,138 @@
 import numpy as np
-import tkinter
-import tkinter.messagebox
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
 
-def calculateSplit(pay):
-    splurge = np.round(float(pay) * 0.075, 2)
-    smile = np.round(float(pay) * 0.1, 2)
-    fire = np.round(float(pay) * 0.15, 2)
-    return splurge, smile, fire
+class Model:
+    def __init__(self, pay) -> None:
+        self.pay = pay
 
-class MoneySplitterGUI: # define a ProgramGUI class
-    def __init__(self): 
-        self.splurge = 0
-        self.smile = 0
-        self.fire = 0
-        self.main = tkinter.Tk()
-        self.main.title('Money Splitter')
-
-        # create Frame widgets
-        self.input = tkinter.Frame(self.main, padx=8, pady=4)
-        self.resultsSplurge = tkinter.Frame(self.main, padx=8, pady=4)
-        self.resultsSmile = tkinter.Frame(self.main, padx=8, pady=4)
-        self.resultsFire = tkinter.Frame(self.main, padx=8, pady=4)
-        self.buttons = tkinter.Frame(self.main, padx=8, pady=4)
-
-        # create and pack the pay entry widget
-        self.payPrompt = tkinter.Label(self.input, width=25, justify='right', text='How much were you paid? ')
-        self.pay = tkinter.Entry(self.input, width=7)
-        self.payPrompt.pack(side='left')
-        self.pay.pack(side='right')
-
-        # create and pack the results widget
-        self.splurgeResult = tkinter.Label(self.resultsSplurge, text=f'Splurge: ${self.splurge}')
-        self.splurgeResult.pack(side='left')
-        self.smileResult = tkinter.Label(self.resultsSmile, text=f'Smile: ${self.smile}')
-        self.smileResult.pack(side='left')
-        self.fireResult = tkinter.Label(self.resultsFire, text=f'Fire: ${self.fire}')
-        self.fireResult.pack(side='left')
-
-        # create and pack the button widgets
-        self.splitButton = tkinter.Button(self.buttons, text='Split Pay', command=self.showResult)
-        self.resetButton = tkinter.Button(self.buttons, text='Reset', command=self.resetForm)
-
-        self.splitButton.pack(side='left')
-        self.resetButton.pack(side='left')
-
-        # pack Frame widgets
-        self.input.pack(anchor='w')
-        self.resultsSplurge.pack(anchor='w')
-        self.resultsSmile.pack(anchor='w')
-        self.resultsFire.pack(anchor='w')
-        self.buttons.pack()
-
-        self.pay.focus_set()
-
-        tkinter.mainloop()
-
-    def showResult(self):
+    @property
+    def pay(self):
+        return self.__pay
+    
+    @pay.setter
+    def pay(self, value):
         try:
-            if float(self.pay.get()) <= 0:
+            if float(value) <= 0:
                 raise ValueError
             else:
-                self.splurge, self.smile, self.fire = calculateSplit(self.pay.get())
-                self.changeText()
-                #tkinter.messagebox.showinfo('Results', f"""Splurge: ${self.splurge}\n Smile: ${self.smile}\nFire: ${self.fire}""")
+                self.__pay = value
         except ValueError:
-            tkinter.messagebox.showerror('Invalid Input', f'Enter positive numbers only')     
+            raise ValueError(f'{value} is not a valid pay amount.\nEnter a vaild number without currency sign.')
+    
+    def split(self):
+        self.splurge = np.round(float(self.pay) * 0.075, 2)
+        self.smile = np.round(float(self.pay) * 0.1, 2)
+        self.fire = np.round(float(self.pay) * 0.15, 2)
+        return self.splurge, self.smile, self.fire
 
-    def resetForm(self):
-        self.splurge = 0
-        self.smile = 0
-        self.fire = 0
-        self.changeText()
-        self.pay.delete(0, tkinter.END)
-        self.pay.focus_set()
+class View(ttk.Frame): # define a ProgramGUI class
+    def __init__(self, parent): 
+        super().__init__(parent)
+        self.splurge_prefix = 'Splurge: $ '
+        self.smile_prefix = 'Smile: $ '
+        self.fire_prefix = 'Fire: $ '
 
-    def changeText(self):
-        self.splurgeResult['text'] = f'Splurge: ${self.splurge}'
-        self.smileResult['text'] = f'Smile: ${self.smile}'
-        self.fireResult['text'] = f'Fire: ${self.fire}'
+        # create widgets
+        # label - pay prompt
+        self.label = ttk.Label(self, width=25, justify='right', text='How much were you paid? ')
+        self.label.grid(row=1, column=0)
 
-gui = MoneySplitterGUI() # create a ProgramGUI object
+        # pay entry
+        self.pay_var = tk.StringVar()
+        self.pay_entry = ttk.Entry(self, textvariable=self.pay_var, width=7)
+        self.pay_entry.grid(row=2, column=0, sticky=tk.NSEW)
+
+        # label - results
+        self.splurge_label = ttk.Label(self, text=f'{self.splurge_prefix} 0.00')
+        self.splurge_label.grid(row=3, column=0, sticky=tk.W)
+        self.smile_label = ttk.Label(self, text=f'{self.smile_prefix} 0.00')
+        self.smile_label.grid(row=4, column=0, sticky=tk.W)
+        self.fire_label = ttk.Label(self, text=f'{self.fire_prefix} 0.00')
+        self.fire_label.grid(row=5, column=0, sticky=tk.W)
+
+        # buttons
+        self.split_button = ttk.Button(self, text='Split Pay', command=self.split_button_clicked)
+        self.split_button.grid(row=1, column=1, padx=10)
+        self.reset_button = ttk.Button(self, text='Reset', command=self.reset_button_clicked)
+        self.reset_button.grid(row=2, column=1, padx=10)
+
+        # set the controller
+        self.controller = None
+
+    def set_controller(self, controller):
+        self.controller = controller
+
+    def split_button_clicked(self):
+        if self.controller:
+            self.controller.split(self.pay_var.get())
+
+    def show_error(self, message):
+        messagebox.showerror('Invalid Input', message)
+
+    def show_results(self, results):
+        self.splurge_label['text'] = self.splurge_prefix + str(results[0])
+        self.smile_label['text'] = self.smile_prefix + str(results[1])
+        self.fire_label['text'] = self.fire_prefix + str(results[2])
+
+    def reset_button_clicked(self):
+        self.splurge_label['text'] = f'{self.splurge_prefix} 0.00'
+        self.smile_label['text'] = f'{self.smile_prefix} 0.00'
+        self.fire_label['text'] = f'{self.fire_prefix} 0.00'
+        self.pay_var.set('')
+
+class Controller:
+    def __init__(self, model, view):
+        self.model = model
+        self.view = view
+
+    def split(self, pay):
+        try:
+            # save the model
+            self.model.pay = pay
+
+            # show results
+            self.view.show_results(self.model.split())
+
+        except ValueError as error:
+            # show an error message
+            self.view.show_error(error)
+
+class App(tk.Tk):
+    def __init__(self):
+        super().__init__()
+
+        self.title('Money Splitter')
+
+        window_width = 260
+        window_height = 125
+
+        # get the screen dimension
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+
+        # find the center point
+        center_x = int(screen_width/2 - window_width / 2)
+        center_y = int(screen_height/2 - window_height / 2)
+
+        # set the position of the window to the center of the screen
+        self.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+        self.resizable(False, False)
+
+        # create a model
+        model = Model(1000)
+
+        # create a view and place it on the root window
+        view = View(self)
+        view.grid(row=0, column=0, padx=10, pady=10)
+
+        # create a controller
+        controller = Controller(model, view)
+
+        # set the controller to view
+        view.set_controller(controller)
+
+if __name__ == '__main__':
+    app = App()
+    app.mainloop() 
